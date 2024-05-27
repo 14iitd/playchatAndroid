@@ -96,7 +96,7 @@ public class MainActivity extends AppCompatActivity {
         videosViewPager = findViewById(R.id.MainViewPager);
         //videosViewPager.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        adapter = new QuestionAdapter(context); // Replace YourPagerAdapter with your actual adapter
+        adapter = new QuestionAdapter(context, videosViewPager); // Replace YourPagerAdapter with your actual adapter
         videosViewPager.setAdapter(adapter);
         videosViewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override

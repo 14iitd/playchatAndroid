@@ -14,6 +14,7 @@ import android.net.Uri;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -32,8 +33,10 @@ import android.graphics.Color;
 
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager2.widget.ViewPager2;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
@@ -42,6 +45,7 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonArrayRequest;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.squareup.picasso.Picasso;
 
 import org.json.JSONArray;
@@ -64,17 +68,22 @@ import in.abhishek.playchat.utils.Constants;
 
 public class QuestionAdapter extends RecyclerView.Adapter<QuestionAdapter.QuestionHolder>{
     private List<QuestionItem> questionItems;
+
+    static ViewPager2 viewPager2;
     static CommentAdapter adapter;
     static ArrayList<RepliesItem> areaList;
     static RecyclerView lvComments;
 
     static Context context;
     static BasicUtils basicUtils;
-    public QuestionAdapter(Context context)
+
+
+    public QuestionAdapter(Context context, ViewPager2 viewPager2)
     {
         questionItems =new ArrayList<>();
         areaList = new ArrayList<>();
         this.context=context;
+       this.viewPager2 = viewPager2;
         basicUtils = new BasicUtils(context);
     }
 
@@ -108,17 +117,21 @@ public class QuestionAdapter extends RecyclerView.Adapter<QuestionAdapter.Questi
         return questionItems.size();
     }
 
-    static class QuestionHolder extends RecyclerView.ViewHolder {
+    static class QuestionHolder extends RecyclerView.ViewHolder implements View.OnTouchListener {
 
         TextView question, question1,q1,q2,q3,q4,played,accuracy;
         WebView webView;
         ImageView imageView,replies;
         private boolean isFront = true;
         LinearLayout ll,ll1,lltap;
-        RelativeLayout rl;
+        FloatingActionButton lock;
+        RelativeLayout rl,rl1;
         int userselect;
         boolean correct=false;
-
+        boolean locked = false;
+        float xAxis;
+        float yAxis;
+        int lastAction;
         public QuestionHolder(@NonNull View itemView)
         {
             super(itemView);
@@ -141,6 +154,8 @@ public class QuestionAdapter extends RecyclerView.Adapter<QuestionAdapter.Questi
             ll1 = itemView.findViewById(R.id.ll1);
             lltap = itemView.findViewById(R.id.tap);
             rl = itemView.findViewById(R.id.rl);
+            rl1 = itemView.findViewById(R.id.rl1);
+            lock = itemView.findViewById(R.id.lock);
         }
 
         void setDataView(QuestionItem questionItem)
@@ -148,6 +163,8 @@ public class QuestionAdapter extends RecyclerView.Adapter<QuestionAdapter.Questi
 
             if (Objects.equals(questionItem.getGame(), "post")){
                 ll1.setVisibility(View.GONE);
+                lock.setVisibility(View.GONE);
+                rl1.setVisibility(View.GONE);
                 webView.setVisibility(View.GONE);
                 question.setVisibility(View.VISIBLE);
                 question1.setVisibility(View.GONE);
@@ -168,13 +185,35 @@ public class QuestionAdapter extends RecyclerView.Adapter<QuestionAdapter.Questi
 
             }
             if(Objects.equals(questionItem.getGame(), "html5")){
-
+                lock.setVisibility(View.VISIBLE);
                 ll1.setVisibility(View.GONE);
                 rl.setVisibility(View.GONE);
+                rl1.setVisibility(View.VISIBLE);
                 question.setVisibility(View.GONE);
                 question1.setVisibility(View.GONE);
                 lltap.setVisibility(View.GONE);
                 webView.setVisibility(View.VISIBLE);
+                lock.setOnTouchListener(this);
+
+                lock.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        locked=!locked;
+                        if (locked){
+                            lock.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.lock));
+                            viewPager2.setUserInputEnabled(false);
+                        } else {
+                            lock.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.unlock));
+                            viewPager2.setUserInputEnabled(true);
+                        }
+                    }
+                });
+                if (locked){
+                    lock.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.lock));
+
+                } else {
+                    lock.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.unlock));
+                }
                 webView.setWebViewClient(new WebViewClient() {
                     @Override
                     public void onPageFinished(WebView view, String url) {
@@ -188,7 +227,9 @@ public class QuestionAdapter extends RecyclerView.Adapter<QuestionAdapter.Questi
             }
             if (Objects.equals(questionItem.getGame(), "flashcard")){
                 ll1.setVisibility(View.GONE);
+                lock.setVisibility(View.GONE);
                 rl.setVisibility(View.GONE);
+                rl1.setVisibility(View.GONE);
                 webView.setVisibility(View.GONE);
                 question.setVisibility(View.GONE);
                 question1.setVisibility(View.VISIBLE);
@@ -235,8 +276,10 @@ public class QuestionAdapter extends RecyclerView.Adapter<QuestionAdapter.Questi
             if (Objects.equals(questionItem.getGame(), "mcq")){
                 rl.setVisibility(View.GONE);
                 webView.setVisibility(View.GONE);
+                lock.setVisibility(View.GONE);
                 question1.setVisibility(View.GONE);
                 lltap.setVisibility(View.GONE);
+                rl1.setVisibility(View.GONE);
                 ll1.setVisibility(View.VISIBLE);
                 question.setVisibility(View.VISIBLE);
                 String qu1 = questionItem.getOptions().opt(0).toString();
@@ -382,6 +425,38 @@ public class QuestionAdapter extends RecyclerView.Adapter<QuestionAdapter.Questi
 
         }
 
+        @Override
+        public boolean onTouch(View v, MotionEvent event) {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    xAxis = v.getX() - event.getRawX();
+                    yAxis = v.getY() - event.getRawY();
+                    lastAction = MotionEvent.ACTION_DOWN;
+                    break;
+                case MotionEvent.ACTION_MOVE:
+                    v.setX(event.getRawX() + xAxis);
+                    v.setY(event.getRawY() + yAxis);
+                    lastAction = MotionEvent.ACTION_MOVE;
+                    break;
+                case MotionEvent.ACTION_UP:
+                    if (lastAction == MotionEvent.ACTION_DOWN) {
+                        // Set On Click Event
+                        //Toast.makeText(this, "Btn Clicked", Toast.LENGTH_SHORT).show();
+                        locked=!locked;
+                        if (locked){
+                            lock.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.lock));
+                            viewPager2.setUserInputEnabled(false);
+                        } else {
+                            lock.setImageDrawable(ContextCompat.getDrawable(context, R.drawable.unlock));
+                            viewPager2.setUserInputEnabled(true);
+                        }
+                    }
+                    break;
+                default:
+                    return false;
+            }
+            return true;
+        }
     }
 
     private static void showBottomDialog(String id) {
